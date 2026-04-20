@@ -662,8 +662,8 @@ export default function App() {
           {/* Info */}
           <div className="mt-4 grid grid-cols-2 gap-3 text-center">
             <div className="bg-gray-800 rounded-lg p-3">
-              <div className="text-gray-500 text-xs">적용 헤드 개수</div>
-              <div className="text-white font-mono font-bold">{headCount} 개</div>
+              <div className="text-gray-500 text-xs">최대 헤드 개수 (기준)</div>
+              <div className="text-white font-mono font-bold">{maxHeadCount} 개</div>
             </div>
             <div className="bg-gray-800 rounded-lg p-3">
               <div className="text-gray-500 text-xs">펌프 토출량 (Q)</div>
