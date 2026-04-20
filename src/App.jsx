@@ -88,7 +88,16 @@ const TABLE_9 = {
 };
 
 const FITTING_NAMES = ["90° 엘보", "45° 엘보", "분류 티(T)", "직류 티(T)", "게이트밸브", "볼밸브", "앵글밸브", "체크밸브"];
-
+const FITTING_ALIASES = [
+  "",
+  "리듀서 포함",
+  "",
+  "커플링 포함",
+  "",
+  "오토밸브·글로브밸브 포함",
+  "알람밸브·풋밸브·스트레이너 포함",
+  "",
+];
 function getTableValue(heads, diamIdx, pipeType) {
   const tbl = pipeType === "A" ? TABLE_A : TABLE_B;
   const row = tbl[heads];
@@ -230,6 +239,9 @@ function PipeSegment({ seg, headCount, pipeType, onChange, onRemove }) {
             {FITTING_NAMES.map((name, i) => (
               <div key={i} className="flex flex-col gap-1">
                 <label className="text-gray-500 text-xs truncate" title={name}>{name}</label>
+                {FITTING_ALIASES[i] && (
+  <span className="text-yellow-600 text-xs">= {FITTING_ALIASES[i]}</span>
+)}
                 <div className="flex items-center gap-1">
                   <input
                     type="number"
