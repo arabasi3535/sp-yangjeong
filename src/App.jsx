@@ -396,6 +396,13 @@ export default function App() {
   // H2 inputs
   const [segments, setSegments] = useState([newSeg(50)]);
 
+  // 전동기 출력
+  const [pumpEff, setPumpEff] = useState("0.65");
+  const [transCoef, setTransCoef] = useState("1.1");
+
+  // 수원 용량
+  const [useRoofTank, setUseRoofTank] = useState(false);
+
   // ── Computed values ──────────────────────────────────────────────────────────
   const suctionHead = useMemo(() => {
     if (suctionMode === "direct") return parseFloat(suctionDirect) || 0;
@@ -435,6 +442,17 @@ export default function App() {
   // 펌프 토출량 = 가장 많은 헤드수 구간 기준
   const maxHeadCount = segments.reduce((m, s) => Math.max(m, parseInt(s.headCount) || 0), 0);
   const flowRate = maxHeadCount * 80;
+
+  // 전동기 출력  P(kW) = 0.163 × Q(m³/min) × H(m) / η × K
+  const Q_m3min = flowRate / 1000;  // Lpm → m³/min
+  const eta = parseFloat(pumpEff) || 1;
+  const K = parseFloat(transCoef) || 1;
+  const motorPower = (0.163 * Q_m3min * H_total / eta) * K;
+
+  // 수원 용량
+  const waterVolL = flowRate * 20;          // L (Lpm × 20min)
+  const waterVolM3 = waterVolL / 1000;      // m³
+  const roofTankM3 = waterVolM3 / 3;        // 옥상수조 = 수원의 1/3
 
   const addSegment = () => setSegments(prev => [...prev, newSeg(50)]);
   const removeSegment = (id) => setSegments(prev => prev.filter(s => s.id !== id));
@@ -668,6 +686,194 @@ export default function App() {
             <div className="bg-gray-800 rounded-lg p-3">
               <div className="text-gray-500 text-xs">펌프 토출량 (Q)</div>
               <div className="text-white font-mono font-bold">{flowRate} Lpm</div>
+            </div>
+          </div>
+        </SectionCard>
+
+        {/* ── STEP 4 : 전동기 출력 + 수원 용량 ── */}
+        <SectionCard
+          step="4"
+          title="전동기 출력 및 수원 용량"
+          sub="펌프 동력 산출 · 수원 및 옥상수조 용량 산정"
+        >
+          {/* ── 전동기 출력 ── */}
+          <div className="mb-6">
+            <div className="text-gray-300 text-sm font-semibold mb-3">① 전동기 출력 산출</div>
+            <div className="bg-gray-900 rounded-lg p-3 text-xs font-mono text-gray-400 mb-4">
+              P(kW) = 0.163 × Q(m³/min) × H(m) ÷ η × K
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-4">
+              {/* 펌프 효율 */}
+              <div>
+                <label className="text-gray-400 text-xs font-semibold uppercase tracking-wide block mb-2">
+                  펌프 효율 η
+                </label>
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {["0.45","0.50","0.55","0.60","0.65","0.70","0.75","0.80"].map(v => (
+                    <button key={v} onClick={() => setPumpEff(v)}
+                      className={`px-3 py-1 rounded-lg text-xs font-mono font-semibold transition-colors ${
+                        pumpEff === v ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                      }`}
+                    >{v}</button>
+                  ))}
+                </div>
+                <div className="flex items-center gap-2">
+                  <input type="number" step="0.01" min="0.1" max="1.0"
+                    value={pumpEff}
+                    onChange={e => setPumpEff(e.target.value)}
+                    className="w-24 bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-white font-mono text-sm focus:outline-none focus:border-blue-500"
+                  />
+                  <span className="text-gray-400 text-sm">직접 입력 가능</span>
+                </div>
+              </div>
+
+              {/* 전달계수 */}
+              <div>
+                <label className="text-gray-400 text-xs font-semibold uppercase tracking-wide block mb-2">
+                  전달계수 K
+                </label>
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {[
+                    { label: "직결 1.1", val: "1.1" },
+                    { label: "V벨트 1.2", val: "1.2" },
+                    { label: "기어 1.15", val: "1.15" },
+                  ].map(o => (
+                    <button key={o.val} onClick={() => setTransCoef(o.val)}
+                      className={`px-3 py-1 rounded-lg text-xs font-semibold transition-colors ${
+                        transCoef === o.val ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                      }`}
+                    >{o.label}</button>
+                  ))}
+                </div>
+                <div className="flex items-center gap-2">
+                  <input type="number" step="0.01" min="1.0" max="2.0"
+                    value={transCoef}
+                    onChange={e => setTransCoef(e.target.value)}
+                    className="w-24 bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-white font-mono text-sm focus:outline-none focus:border-blue-500"
+                  />
+                  <span className="text-gray-400 text-sm">직접 입력 가능</span>
+                </div>
+              </div>
+            </div>
+
+            {/* 전동기 출력 결과 */}
+            <div className="grid grid-cols-3 gap-3 mb-3">
+              <div className="bg-gray-800 rounded-lg p-3 text-center">
+                <div className="text-gray-500 text-xs mb-1">Q (m³/min)</div>
+                <div className="text-white font-mono font-bold">{Q_m3min.toFixed(4)}</div>
+              </div>
+              <div className="bg-gray-800 rounded-lg p-3 text-center">
+                <div className="text-gray-500 text-xs mb-1">H (m)</div>
+                <div className="text-white font-mono font-bold">{H_total.toFixed(3)}</div>
+              </div>
+              <div className="bg-gray-800 rounded-lg p-3 text-center">
+                <div className="text-gray-500 text-xs mb-1">η × K</div>
+                <div className="text-white font-mono font-bold">{eta.toFixed(2)} × {K.toFixed(2)}</div>
+              </div>
+            </div>
+
+            <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl px-5 py-4 flex items-center justify-between">
+              <div>
+                <div className="text-blue-200 font-bold text-sm">전동기 출력 P</div>
+                <div className="text-blue-300/70 font-mono text-xs mt-1">
+                  = 0.163 × {Q_m3min.toFixed(4)} × {H_total.toFixed(2)} ÷ {eta.toFixed(2)} × {K.toFixed(2)}
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-blue-400 font-mono font-black text-3xl">
+                  {motorPower.toFixed(2)}<span className="text-base font-normal ml-1">kW</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="h-px bg-gray-700 mb-6" />
+
+          {/* ── 수원 용량 ── */}
+          <div>
+            <div className="text-gray-300 text-sm font-semibold mb-3">② 수원 용량 산정</div>
+            <div className="bg-gray-900 rounded-lg p-3 text-xs font-mono text-gray-400 mb-4">
+              수원(L) = Q(Lpm) × 20min &nbsp;|&nbsp; 옥상수조 = 수원 × 1/3
+            </div>
+
+            {/* 수원 기준값 */}
+            <div className="grid grid-cols-3 gap-3 mb-4">
+              <div className="bg-gray-800 rounded-lg p-3 text-center">
+                <div className="text-gray-500 text-xs mb-1">펌프 토출량 Q</div>
+                <div className="text-white font-mono font-bold">{flowRate} Lpm</div>
+              </div>
+              <div className="bg-gray-800 rounded-lg p-3 text-center">
+                <div className="text-gray-500 text-xs mb-1">방사 시간</div>
+                <div className="text-white font-mono font-bold">20 min</div>
+              </div>
+              <div className="bg-gray-800 rounded-lg p-3 text-center">
+                <div className="text-gray-500 text-xs mb-1">수원 (L)</div>
+                <div className="text-yellow-400 font-mono font-bold">{waterVolL.toLocaleString()} L</div>
+              </div>
+            </div>
+
+            {/* 주수원 */}
+            <div className="bg-green-500/10 border border-green-500/30 rounded-xl px-5 py-4 flex items-center justify-between mb-3">
+              <div>
+                <div className="text-green-200 font-bold text-sm">주수원 용량</div>
+                <div className="text-green-300/70 font-mono text-xs mt-1">
+                  = {flowRate} Lpm × 20 min = {waterVolL.toLocaleString()} L
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-green-400 font-mono font-black text-2xl">
+                  {waterVolM3.toFixed(2)}<span className="text-base font-normal ml-1">m³</span>
+                </div>
+              </div>
+            </div>
+
+            {/* 옥상수조 선택 */}
+            <div className="border border-gray-700 rounded-xl overflow-hidden">
+              <div
+                className="flex items-center gap-3 px-4 py-3 bg-gray-800 cursor-pointer select-none"
+                onClick={() => setUseRoofTank(v => !v)}
+              >
+                <div className={`w-5 h-5 rounded flex items-center justify-center border-2 transition-colors ${
+                  useRoofTank ? "bg-orange-500 border-orange-500" : "border-gray-500"
+                }`}>
+                  {useRoofTank && <span className="text-white text-xs font-bold">✓</span>}
+                </div>
+                <div>
+                  <div className="text-white text-sm font-semibold">옥상수조 포함 (선택)</div>
+                  <div className="text-gray-500 text-xs">NFPC 103 제4조 2항 — 주수원의 1/3 이상</div>
+                </div>
+              </div>
+
+              {useRoofTank && (
+                <div className="p-4 bg-orange-500/5 border-t border-gray-700">
+                  <div className="bg-orange-500/10 border border-orange-500/30 rounded-xl px-5 py-4 flex items-center justify-between">
+                    <div>
+                      <div className="text-orange-200 font-bold text-sm">옥상수조 용량</div>
+                      <div className="text-orange-300/70 font-mono text-xs mt-1">
+                        = {waterVolM3.toFixed(2)} m³ ÷ 3 = {roofTankM3.toFixed(2)} m³ (주수원의 1/3)
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-orange-400 font-mono font-black text-2xl">
+                        {roofTankM3.toFixed(2)}<span className="text-base font-normal ml-1">m³</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-3 grid grid-cols-2 gap-3">
+                    <div className="bg-gray-800 rounded-lg p-3 text-center">
+                      <div className="text-gray-500 text-xs mb-1">주수원 + 옥상수조 합계</div>
+                      <div className="text-white font-mono font-bold">
+                        {(waterVolM3 + roofTankM3).toFixed(2)} m³
+                      </div>
+                    </div>
+                    <div className="bg-gray-800 rounded-lg p-3 text-center">
+                      <div className="text-gray-500 text-xs mb-1">옥상수조 비율</div>
+                      <div className="text-orange-400 font-mono font-bold">1/3 ({(roofTankM3/waterVolM3*100).toFixed(1)}%)</div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </SectionCard>
