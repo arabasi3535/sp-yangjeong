@@ -88,16 +88,19 @@ const TABLE_9 = {
 };
 
 const FITTING_NAMES = ["90° 엘보", "45° 엘보", "분류 티(T)", "직류 티(T)", "게이트밸브", "볼밸브", "앵글밸브", "체크밸브"];
+
+// 표 1-3-9 (주) 기준 동일 적용 항목
 const FITTING_ALIASES = [
-  "",
-  "리듀서 포함",
-  "",
-  "커플링 포함",
-  "",
-  "오토밸브·글로브밸브 포함",
-  "알람밸브·풋밸브·스트레이너 포함",
-  "",
+  "",                              // 90° 엘보
+  "리듀서 포함",                    // 45° 엘보
+  "",                              // 분류 티
+  "커플링 포함",                    // 직류 티
+  "",                              // 게이트밸브
+  "오토밸브·글로브밸브 포함",        // 볼밸브
+  "알람밸브·풋밸브·스트레이너 포함", // 앵글밸브
+  "",                              // 체크밸브
 ];
+
 function getTableValue(heads, diamIdx, pipeType) {
   const tbl = pipeType === "A" ? TABLE_A : TABLE_B;
   const row = tbl[heads];
@@ -106,9 +109,11 @@ function getTableValue(heads, diamIdx, pipeType) {
 }
 
 let segId = 0;
-const newSeg = (diam = 25) => ({
+const newSeg = (diam = 50) => ({
   id: ++segId,
   diameter: diam,
+  pipeType: "A",
+  headCount: 10,
   pipeLength: "",
   fittings: FITTING_NAMES.map(() => ""),
 });
@@ -178,29 +183,35 @@ function ResultRow({ label, value, unit, highlight }) {
 
 // ─── PIPE SEGMENT ──────────────────────────────────────────────────────────────
 
-function PipeSegment({ seg, headCount, pipeType, onChange, onRemove }) {
-  const diamIdx = PIPE_DIAMETERS.indexOf(seg.diameter);
-  const tableVal = headCount >= 1 && headCount <= 30 ? getTableValue(headCount, diamIdx, pipeType) : null;
+function PipeSegment({ seg, segNum, onChange, onRemove }) {
+  const { pipeType, headCount, diameter } = seg;
+  const diamIdx = PIPE_DIAMETERS.indexOf(diameter);
+  const hc = Math.max(1, Math.min(30, parseInt(headCount) || 0));
+  const tableVal = hc >= 1 && hc <= 30 ? getTableValue(hc, diamIdx, pipeType) : null;
 
   const fittingEqLen = seg.fittings.reduce((sum, qty, i) => {
     const q = parseFloat(qty) || 0;
-    const eqLen = TABLE_9[seg.diameter]?.[i] ?? 0;
+    const eqLen = TABLE_9[diameter]?.[i] ?? 0;
     return sum + q * eqLen;
   }, 0);
 
   const pipeLen = parseFloat(seg.pipeLength) || 0;
   const totalEqLen = pipeLen + fittingEqLen;
   const frictionLoss = tableVal != null ? (totalEqLen / 100) * tableVal : null;
+  const flowRate = hc * 80;
 
   return (
     <div className="border border-gray-700 rounded-xl bg-gray-800/50 overflow-hidden mb-4">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 bg-gray-800 border-b border-gray-700">
         <div className="flex items-center gap-3">
-          <span className="text-orange-400 font-bold font-mono text-sm">φ{seg.diameter}mm</span>
+          <div className="w-6 h-6 rounded-full bg-orange-500/20 border border-orange-500/50 flex items-center justify-center text-orange-400 text-xs font-bold">
+            {segNum}
+          </div>
+          <span className="text-orange-400 font-bold font-mono text-sm">φ{diameter}mm</span>
           <span className="text-gray-500 text-xs">배관 구간</span>
-          {tableVal == null && headCount > 0 && (
-            <Badge color="gray">이 관경은 해당 헤드수에서 사용불가</Badge>
+          {tableVal == null && hc > 0 && (
+            <Badge color="gray">해당 관경 사용불가</Badge>
           )}
         </div>
         <button
@@ -210,12 +221,72 @@ function PipeSegment({ seg, headCount, pipeType, onChange, onRemove }) {
       </div>
 
       <div className="p-4 grid grid-cols-1 gap-4">
-        {/* Diameter + pipe length */}
+
+        {/* ① 배관 종류 + 헤드 개수 — 구간별 설정 */}
+        <div className="flex flex-wrap gap-4 items-end p-3 bg-gray-900 rounded-xl border border-gray-700">
+          <div className="text-gray-400 text-xs font-semibold uppercase tracking-wide w-full mb-1">
+            ① 이 구간 설정
+          </div>
+
+          {/* 배관 종류 */}
+          <div className="flex flex-col gap-1">
+            <label className="text-gray-400 text-xs font-semibold">배관 종류</label>
+            <div className="flex gap-2">
+              <button
+                onClick={() => onChange({ ...seg, pipeType: "A" })}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                  pipeType === "A"
+                    ? "bg-orange-500 text-white"
+                    : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                }`}
+              >
+                일반강관
+                <div className="text-xs font-normal opacity-75">JIS G 3452</div>
+              </button>
+              <button
+                onClick={() => onChange({ ...seg, pipeType: "B" })}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                  pipeType === "B"
+                    ? "bg-orange-500 text-white"
+                    : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                }`}
+              >
+                압력배관
+                <div className="text-xs font-normal opacity-75">Sch.40</div>
+              </button>
+            </div>
+          </div>
+
+          {/* 헤드 개수 */}
+          <div className="flex flex-col gap-1">
+            <label className="text-gray-400 text-xs font-semibold">헤드 개수</label>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min="1"
+                max="30"
+                value={headCount}
+                onChange={e => {
+                  const v = Math.max(1, Math.min(30, parseInt(e.target.value) || 1));
+                  onChange({ ...seg, headCount: v });
+                }}
+                className="w-20 bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-white font-mono text-sm focus:outline-none focus:border-orange-500"
+              />
+              <div className="bg-gray-800 rounded-lg px-3 py-2 text-xs">
+                <span className="text-gray-500">토출량</span>
+                <span className="text-yellow-400 font-mono font-bold ml-1">{flowRate} Lpm</span>
+              </div>
+            </div>
+            <div className="text-gray-600 text-xs">1~30개 (1개당 80 Lpm)</div>
+          </div>
+        </div>
+
+        {/* ② 관경 + 직관 길이 */}
         <div className="flex flex-wrap gap-4 items-end">
           <div className="flex flex-col gap-1">
-            <label className="text-gray-400 text-xs font-semibold uppercase tracking-wide">관경 선택</label>
+            <label className="text-gray-400 text-xs font-semibold uppercase tracking-wide">② 관경 선택</label>
             <select
-              value={seg.diameter}
+              value={diameter}
               onChange={e => onChange({ ...seg, diameter: Number(e.target.value) })}
               className="bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm font-mono focus:outline-none focus:border-orange-500"
             >
@@ -232,16 +303,16 @@ function PipeSegment({ seg, headCount, pipeType, onChange, onRemove }) {
           />
         </div>
 
-        {/* Fittings */}
+        {/* ③ 부속류 및 밸브류 */}
         <div>
-          <div className="text-gray-400 text-xs font-semibold uppercase tracking-wide mb-2">부속류 및 밸브류 수량 (개)</div>
+          <div className="text-gray-400 text-xs font-semibold uppercase tracking-wide mb-2">③ 부속류 및 밸브류 수량 (개)</div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {FITTING_NAMES.map((name, i) => (
               <div key={i} className="flex flex-col gap-1">
-                <label className="text-gray-500 text-xs truncate" title={name}>{name}</label>
+                <label className="text-gray-500 text-xs font-semibold" title={name}>{name}</label>
                 {FITTING_ALIASES[i] && (
-  <span className="text-yellow-600 text-xs">= {FITTING_ALIASES[i]}</span>
-)}
+                  <span className="text-yellow-600 text-xs leading-tight">= {FITTING_ALIASES[i]}</span>
+                )}
                 <div className="flex items-center gap-1">
                   <input
                     type="number"
@@ -257,15 +328,27 @@ function PipeSegment({ seg, headCount, pipeType, onChange, onRemove }) {
                     placeholder="0"
                   />
                   <span className="text-gray-500 text-xs whitespace-nowrap">
-                    ×{TABLE_9[seg.diameter]?.[i]?.toFixed(2)}m
+                    ×{TABLE_9[diameter]?.[i]?.toFixed(2)}m
                   </span>
                 </div>
               </div>
             ))}
           </div>
+
+          {/* 표 1-3-9 (주) 안내 박스 */}
+          <div className="mt-3 bg-gray-900 border border-gray-700 rounded-lg p-3">
+            <div className="text-gray-500 text-xs font-semibold mb-2">📋 표 1-3-9 (주) — 동일 적용 기준</div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 text-xs text-gray-400">
+              <div>• <span className="text-yellow-500 font-semibold">리듀서</span> → 45° 엘보와 같이 적용</div>
+              <div>• <span className="text-yellow-500 font-semibold">커플링</span> → 직류 티(T)와 같이 적용</div>
+              <div>• <span className="text-yellow-500 font-semibold">오토밸브 · 글로브밸브</span> → 볼밸브와 같이 적용</div>
+              <div>• <span className="text-yellow-500 font-semibold">알람밸브 · 풋밸브 · 스트레이너</span> → 앵글밸브와 같이 적용</div>
+              <div className="sm:col-span-2 text-gray-600 mt-1">※ 엘보·티는 나사접합 기준 / 유니온·플랜지·소켓은 손실 미소하여 생략</div>
+            </div>
+          </div>
         </div>
 
-        {/* Calculated results for this segment */}
+        {/* 구간 계산 결과 */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2 border-t border-gray-700">
           <div className="bg-gray-900 rounded-lg p-3">
             <div className="text-gray-500 text-xs mb-1">직관 길이</div>
@@ -280,7 +363,7 @@ function PipeSegment({ seg, headCount, pipeType, onChange, onRemove }) {
             <div className="text-yellow-400 font-mono font-bold">{totalEqLen.toFixed(2)} m</div>
           </div>
           <div className={`rounded-lg p-3 ${frictionLoss != null ? "bg-orange-500/10 border border-orange-500/20" : "bg-gray-900"}`}>
-            <div className="text-gray-500 text-xs mb-1">마찰손실수두</div>
+            <div className="text-gray-500 text-xs mb-1">구간 마찰손실</div>
             {frictionLoss != null ? (
               <div className="text-orange-400 font-mono font-bold">{frictionLoss.toFixed(3)} m</div>
             ) : (
@@ -289,11 +372,11 @@ function PipeSegment({ seg, headCount, pipeType, onChange, onRemove }) {
           </div>
         </div>
 
-        {/* Formula display */}
+        {/* 계산식 */}
         {tableVal != null && (
           <div className="text-gray-500 text-xs font-mono bg-gray-900 rounded p-2">
-            표{pipeType === "A" ? "1-3-8(A)" : "1-3-8(B)"} [{headCount}개/{headCount*80}Lpm, φ{seg.diameter}mm] = {tableVal} m/100m
-            &nbsp;→&nbsp; {totalEqLen.toFixed(2)} m ÷ 100 × {tableVal} = <span className="text-orange-400">{frictionLoss?.toFixed(3)} m</span>
+            표1-3-8({pipeType}) [{hc}개/{flowRate}Lpm, φ{diameter}mm] = {tableVal} m/100m
+            &nbsp;→&nbsp; {totalEqLen.toFixed(2)}m ÷ 100 × {tableVal} = <span className="text-orange-400">{frictionLoss?.toFixed(3)} m</span>
           </div>
         )}
       </div>
@@ -311,14 +394,11 @@ export default function App() {
   const [suctionMmhg, setSuctionMmhg] = useState(""); // mmHg (연성계)
 
   // H2 inputs
-  const [pipeType, setPipeType] = useState("A");
-  const [headCount, setHeadCount] = useState(10);
   const [segments, setSegments] = useState([newSeg(50)]);
 
   // ── Computed values ──────────────────────────────────────────────────────────
   const suctionHead = useMemo(() => {
     if (suctionMode === "direct") return parseFloat(suctionDirect) || 0;
-    // mmHg → m H2O : 1 mmHg = 133.322 Pa, 1 m H2O = 9806.65 Pa
     const mmhg = parseFloat(suctionMmhg) || 0;
     return mmhg * (133.322 / 9806.65);
   }, [suctionMode, suctionDirect, suctionMmhg]);
@@ -330,9 +410,10 @@ export default function App() {
 
   const segResults = useMemo(() => {
     return segments.map(seg => {
+      const hc = Math.max(1, Math.min(30, parseInt(seg.headCount) || 0));
       const diamIdx = PIPE_DIAMETERS.indexOf(seg.diameter);
-      const tableVal = headCount >= 1 && headCount <= 30
-        ? getTableValue(headCount, diamIdx, pipeType)
+      const tableVal = hc >= 1 && hc <= 30
+        ? getTableValue(hc, diamIdx, seg.pipeType)
         : null;
       const fittingEqLen = seg.fittings.reduce((sum, qty, i) => {
         const q = parseFloat(qty) || 0;
@@ -344,14 +425,16 @@ export default function App() {
       const frictionLoss = tableVal != null ? (totalEqLen / 100) * tableVal : null;
       return { seg, tableVal, fittingEqLen, pipeLen, totalEqLen, frictionLoss };
     });
-  }, [segments, headCount, pipeType]);
+  }, [segments]);
 
   const H2 = useMemo(() => {
     return segResults.reduce((sum, r) => sum + (r.frictionLoss ?? 0), 0);
   }, [segResults]);
 
   const H_total = H1 + H2 + 10;
-  const flowRate = headCount * 80;
+  // 펌프 토출량 = 가장 많은 헤드수 구간 기준
+  const maxHeadCount = segments.reduce((m, s) => Math.max(m, parseInt(s.headCount) || 0), 0);
+  const flowRate = maxHeadCount * 80;
 
   const addSegment = () => setSegments(prev => [...prev, newSeg(50)]);
   const removeSegment = (id) => setSegments(prev => prev.filter(s => s.id !== id));
@@ -479,70 +562,14 @@ export default function App() {
         <SectionCard
           step="2"
           title="H₂ · 배관의 마찰손실수두"
-          sub="직관 + 부속류 등가길이 × 100m당 마찰손실수두"
+          sub="구간별로 배관 종류·헤드개수·관경을 각각 설정"
         >
-          {/* 설정 행 */}
-          <div className="flex flex-wrap gap-5 items-end mb-5 pb-5 border-b border-gray-700">
-            {/* 배관 종류 */}
-            <div>
-              <div className="text-gray-400 text-xs font-semibold uppercase tracking-wide mb-2">배관 종류</div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setPipeType("A")}
-                  className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
-                    pipeType === "A"
-                      ? "bg-orange-500 text-white"
-                      : "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                  }`}
-                >
-                  일반강관 (A)
-                  <div className="text-xs font-normal opacity-75">JIS G 3452</div>
-                </button>
-                <button
-                  onClick={() => setPipeType("B")}
-                  className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
-                    pipeType === "B"
-                      ? "bg-orange-500 text-white"
-                      : "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                  }`}
-                >
-                  압력배관 (B)
-                  <div className="text-xs font-normal opacity-75">JIS G 3454 Sch.40</div>
-                </button>
-              </div>
-            </div>
-
-            {/* 헤드 개수 */}
-            <div>
-              <div className="text-gray-400 text-xs font-semibold uppercase tracking-wide mb-2">헤드 개수</div>
-              <div className="flex items-center gap-2">
-                <input
-                  type="number"
-                  min="1"
-                  max="30"
-                  value={headCount}
-                  onChange={e => {
-                    const v = Math.max(1, Math.min(30, parseInt(e.target.value) || 1));
-                    setHeadCount(v);
-                  }}
-                  className="w-20 bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-white font-mono text-sm focus:outline-none focus:border-orange-500"
-                />
-                <div className="bg-gray-800 rounded-lg px-3 py-2 text-sm">
-                  <span className="text-gray-500">토출량 =</span>
-                  <span className="text-yellow-400 font-mono font-bold ml-1">{flowRate} Lpm</span>
-                </div>
-              </div>
-              <div className="text-gray-600 text-xs mt-1">1~30 개 (1개당 80 Lpm)</div>
-            </div>
-          </div>
-
           {/* 배관 구간 목록 */}
-          {segments.map(seg => (
+          {segments.map((seg, i) => (
             <PipeSegment
               key={seg.id}
               seg={seg}
-              headCount={headCount}
-              pipeType={pipeType}
+              segNum={i + 1}
               onChange={updated => updateSegment(seg.id, updated)}
               onRemove={() => removeSegment(seg.id)}
             />
@@ -563,7 +590,9 @@ export default function App() {
                 <div key={r.seg.id} className="flex items-center justify-between text-sm bg-gray-800 rounded-lg px-4 py-2">
                   <span className="text-gray-400 font-mono">
                     구간{i+1} &nbsp;φ{r.seg.diameter}mm
-                    &nbsp;<span className="text-gray-600">(등가길이 {r.totalEqLen.toFixed(2)} m)</span>
+                    &nbsp;<span className="text-gray-600 text-xs">
+                      ({r.seg.pipeType === "A" ? "일반강관" : "압력배관"} / {r.seg.headCount}개 / 등가길이 {r.totalEqLen.toFixed(2)}m)
+                    </span>
                   </span>
                   <span className={`font-mono font-bold ${r.frictionLoss != null ? "text-white" : "text-gray-600"}`}>
                     {r.frictionLoss != null ? `${r.frictionLoss.toFixed(3)} m` : "계산불가"}
