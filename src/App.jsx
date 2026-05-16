@@ -475,7 +475,7 @@ export default function App() {
               </p>
             </div>
             <div className="ml-auto flex gap-2">
-              <Badge color="orange">소방설비기사 실기</Badge>
+              <Badge color="orange">안동소방서 이제현</Badge>
             </div>
           </div>
         </div>
